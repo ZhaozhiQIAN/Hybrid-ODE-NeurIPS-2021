@@ -23,7 +23,8 @@ def run(seed: int,
         optim_config: OptimConfig,
         eval_config: EvalConfig,
         encoder_output_dim=None,
-        ablate=False):
+        ablate=False,
+        arg_itr=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
@@ -42,7 +43,10 @@ def run(seed: int,
     # optim config
     lr = optim_config.lr
     ode_method = optim_config.ode_method
-    niters = optim_config.niters
+    if arg_itr is None:
+        niters = optim_config.niters
+    else:
+        niters = arg_itr
     batch_size = optim_config.batch_size
     test_freq = optim_config.test_freq
     early_stop = optim_config.early_stop
@@ -129,7 +133,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', default=666, type=int)
     parser.add_argument('--sample', default=1000, type=int)
     parser.add_argument('--path', default=None, type=str)
-    parser.add_argument('--restart', default=5, type=int)
+    parser.add_argument('--restart', default=3, type=int)
+    parser.add_argument('--arg_itr', default=None, type=int)
     parser.add_argument('--eval', default='n', type=str)
     parser.add_argument('--elbo', default='y', type=str)
     parser.add_argument('--init', default=None, type=str)
@@ -155,6 +160,7 @@ if __name__ == '__main__':
     dc = args.data_config
     elbo = args.elbo == 'y'
     encoder_output_dim = args.encoder_output_dim
+    arg_itr = args.arg_itr
 
     if dc == 'dim8':
         data_config = dim8_config
@@ -173,4 +179,4 @@ if __name__ == '__main__':
     # todo: try no shuffle
     optim_config = OptimConfig(shuffle=False, n_restart=restart, batch_size=batch_size, lr=args.lr)
     eval_config = EvalConfig(t0=args.t0)
-    run(seed, elbo, device, eval_only, init_path, data_path, sample, data_config, roche_config, model_config, optim_config, eval_config, encoder_output_dim, args.ablate)
+    run(seed, elbo, device, eval_only, init_path, data_path, sample, data_config, roche_config, model_config, optim_config, eval_config, encoder_output_dim, args.ablate, arg_itr)
