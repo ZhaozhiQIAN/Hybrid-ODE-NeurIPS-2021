@@ -134,8 +134,6 @@ def evaluate(model, data_generator, batch_size, t0, mc_itr=50, real=False):
                 z_list.append(z_)
                 x_hat_list.append(x_hat)
 
-            # todo: this will break for flows
-
             # B, D, MC
             z_mat = torch.stack(z_list, dim=-1)
 
@@ -186,6 +184,89 @@ def evaluate(model, data_generator, batch_size, t0, mc_itr=50, real=False):
         print('cprs_x,{:.4f},{:.4f}'.format(cprs_x, cprs_x_sd))
 
         return rmse_z0, rmse_z0_sd, cprs_z0, rmse_x, rmse_x_sd, cprs_x
+
+
+def evaluate_horizon(model, data_generator, batch_size, t0, mc_itr=10, real=False):
+    with torch.no_grad():
+        # sample-level rmse
+        total_rmse_x = list()
+        total_cprs_x = list()
+
+        for chunk in range(data_generator.test_size // batch_size):
+            data = data_generator.get_split('test', batch_size, chunk)
+
+            x = data['measurements'][:t0]
+            a = data['actions'][:t0]
+            mask = data['masks'][:t0]
+            z0 = data['latents'][0]
+            if real:
+                s = data['statics'][:t0]
+
+            # Evaluate the goodness of point estimate
+            if real:
+                a_in = torch.cat([a, s], dim=-1)
+                encoder_out = model.encoder(x, a_in, mask)
+                z0_hat = encoder_out[0]
+                x_hat, _ = model.decoder(z0_hat, data['actions'], data['statics'])
+            else:
+                encoder_out = model.encoder(x, a, mask)
+                z0_hat = encoder_out[0]
+                x_hat, _ = model.decoder(z0_hat, data['actions'])
+
+            x_hat = x_hat[t0:, ...]
+
+            # predicting future
+            x_test = data['measurements'][t0:]
+            mask_test = data['masks'][t0:]
+            # T, B
+            total_rmse_x.append(torch.sum((x_test - x_hat) ** 2 * mask_test, dim=2) / torch.sum(mask_test, dim=2))
+
+            z_list = list()
+            x_hat_list = list()
+
+            for i in range(mc_itr):
+                z_ = model.encoder.reparameterize(*encoder_out)
+                if real:
+                    x_hat, _ = model.decoder(z_, data['actions'], data['statics'])
+                else:
+                    x_hat, _ = model.decoder(z_, data['actions'])
+                z_list.append(z_)
+                x_hat_list.append(x_hat)
+
+            # T0, B, D, MC
+            x_hat_mat = torch.stack(x_hat_list, dim=-1)[t0:, ...]
+            x_cprs = np.zeros(x_test.shape)
+            for d1 in range(x_test.shape[0]):
+                for d2 in range(x_test.shape[1]):
+                    for d3 in range(x_test.shape[2]):
+                        truth = x_test[d1, d2, d3].item()
+                        pred = x_hat_mat[d1, d2, d3, :].cpu().numpy()
+                        x_cprs[d1, d2, d3] = ps.crps_ensemble(truth, pred)
+            x_cprs = np.mean(x_cprs, axis=2)
+            total_cprs_x.append(x_cprs)
+
+        # T, B
+        total_rmse_x = torch.cat(total_rmse_x, dim=1)
+        # T
+        rmse_x = torch.sqrt(torch.nanmean(total_rmse_x, dim=1)).numpy()
+        rmse_x_sd_list = []
+
+        for i in range(rmse_x.shape[0]):
+            rmse_x_sd_list.append(bootstrap_RMSE(total_rmse_x[i]))
+
+        rmse_x_sd = np.array(rmse_x_sd_list)
+
+        total_cprs_x = np.concatenate(total_cprs_x, axis=1)
+        cprs_x = np.mean(total_cprs_x, axis=1)
+        cprs_x_sd = np.std(total_cprs_x, axis=1) / np.sqrt(total_cprs_x.shape[1])
+
+        d = {
+            'rmse_x': rmse_x,
+            'rmse_x_sd': rmse_x_sd,
+            'cprs_x': cprs_x,
+            'cprs_x_sd': cprs_x_sd
+        }
+        return d
 
 
 def evaluate_flow(model, data_generator, batch_size, t0, mc_itr=50, real=False):
@@ -386,6 +467,88 @@ def evaluate_ensemble(model_expert, model_ml, data_generator, batch_size, t0, mc
         print('cprs_x,{:.4f},{:.4f}'.format(cprs_x, cprs_x_sd))
 
         return rmse_z0, rmse_z0_sd, cprs_z0, rmse_x, rmse_x_sd, cprs_x
+
+
+def evaluate_ensemble_horizon(model_expert, model_ml, data_generator, batch_size, t0, mc_itr=10, weight_expert=1, weight_ml=1):
+    with torch.no_grad():
+        # sample-level rmse
+        total_rmse_x = list()
+        total_cprs_x = list()
+
+        for chunk in range(data_generator.test_size // batch_size):
+            data = data_generator.get_split('test', batch_size, chunk)
+
+            x = data['measurements'][:t0]
+            a = data['actions'][:t0]
+            mask = data['masks'][:t0]
+            z0 = data['latents'][0]
+
+            # Evaluate the goodness of point estimate
+            encoder_out = model_expert.encoder(x, a, mask)
+            z0_hat = encoder_out[0]
+            x_hat, _ = model_expert.decoder(z0_hat, data['actions'])
+
+            encoder_out_ml = model_ml.encoder(x, a, mask)
+            z0_hat_ml = encoder_out_ml[0]
+            x_hat_ml, _ = model_ml.decoder(z0_hat_ml, data['actions'])
+
+            x_hat = x_hat * weight_expert + x_hat_ml * weight_ml
+            x_hat = x_hat[t0:, ...]
+
+            # predicting future
+            x_test = data['measurements'][t0:]
+            mask_test = data['masks'][t0:]
+            total_rmse_x.append(torch.sum((x_test - x_hat) ** 2 * mask_test, dim=2) / torch.sum(mask_test, dim=2))
+
+            z_list = list()
+            x_hat_list = list()
+
+            for i in range(mc_itr):
+                z_ = model_expert.encoder.reparameterize(*encoder_out)
+                x_hat, _ = model_expert.decoder(z_, data['actions'])
+
+                z_ml_ = model_ml.encoder.reparameterize(*encoder_out_ml)
+                x_hat_ml, _ = model_ml.decoder(z_ml_, data['actions'])
+
+                x_hat = x_hat * weight_expert + x_hat_ml * weight_ml
+
+                z_list.append(z_)
+                x_hat_list.append(x_hat)
+
+            # T0, B, D, MC
+            x_hat_mat = torch.stack(x_hat_list, dim=-1)[t0:, ...]
+            x_cprs = np.zeros(x_test.shape)
+            for d1 in range(x_test.shape[0]):
+                for d2 in range(x_test.shape[1]):
+                    for d3 in range(x_test.shape[2]):
+                        truth = x_test[d1, d2, d3].item()
+                        pred = x_hat_mat[d1, d2, d3, :].cpu().numpy()
+                        x_cprs[d1, d2, d3] = ps.crps_ensemble(truth, pred)
+            x_cprs = np.mean(x_cprs, axis=2)
+            total_cprs_x.append(x_cprs)
+
+            # T, B
+            total_rmse_x = torch.cat(total_rmse_x, dim=1)
+            # T
+            rmse_x = torch.sqrt(torch.nanmean(total_rmse_x, dim=1)).numpy()
+            rmse_x_sd_list = []
+
+            for i in range(rmse_x.shape[0]):
+                rmse_x_sd_list.append(bootstrap_RMSE(total_rmse_x[i]))
+
+            rmse_x_sd = np.array(rmse_x_sd_list)
+
+            total_cprs_x = np.concatenate(total_cprs_x, axis=1)
+            cprs_x = np.mean(total_cprs_x, axis=1)
+            cprs_x_sd = np.std(total_cprs_x, axis=1) / np.sqrt(total_cprs_x.shape[1])
+
+            d = {
+                'rmse_x': rmse_x,
+                'rmse_x_sd': rmse_x_sd,
+                'cprs_x': cprs_x,
+                'cprs_x_sd': cprs_x_sd
+            }
+            return d
 
 
 def bootstrap_RMSE(err_sq):

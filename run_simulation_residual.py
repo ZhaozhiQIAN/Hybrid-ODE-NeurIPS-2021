@@ -56,7 +56,9 @@ def run(seed: int,
         model_config_expert: ModelConfig,
         model_config_ml: ModelConfig,
         optim_config: OptimConfig,
-        eval_config: EvalConfig):
+        eval_config: EvalConfig,
+        horizon=False,
+        result_path=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
@@ -139,7 +141,13 @@ def run(seed: int,
         print('Overall best loss: {:.6f}'.format(best_loss))
     print(model_config_ml.path + vi.model_name)
 
-    training_utils.evaluate_ensemble(model_expert, vi, dg, batch_size, eval_config.t0)
+    if not horizon:
+        training_utils.evaluate_ensemble(model_expert, vi, dg, batch_size, eval_config.t0)
+    else:
+        res = training_utils.evaluate_ensemble_horizon(model_expert, vi, dg, batch_size, eval_config.t0)
+
+        with open(result_path, 'wb') as f:
+            pickle.dump(res, f)
 
 
 if __name__ == '__main__':
@@ -157,6 +165,8 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', default='data/datafile_dose_exp.pkl', type=str)
     parser.add_argument('--data_config', default=None, type=str)
     parser.add_argument('--lr', default=0.01, type=float)
+    parser.add_argument('--horizon', default=False, type=bool)
+    parser.add_argument('--result_path', default=None, type=str)
 
     args = parser.parse_args()
     method = args.method
@@ -189,5 +199,5 @@ if __name__ == '__main__':
     eval_config = EvalConfig(t0=args.t0)
 
     run(seed, device, eval_only, data_path, sample, data_config,
-        roche_config, model_config_expert, model_config_ml, optim_config, eval_config)
+        roche_config, model_config_expert, model_config_ml, optim_config, eval_config, args.horizon, args.result_path)
 

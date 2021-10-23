@@ -57,7 +57,9 @@ def run(seed: int,
         model_config_expert: ModelConfig,
         model_config_ml: ModelConfig,
         optim_config: OptimConfig,
-        eval_config: EvalConfig):
+        eval_config: EvalConfig,
+        horizon=False,
+        result_path=None):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
@@ -127,8 +129,17 @@ def run(seed: int,
             weights_e[i, 0, j] = w[0]
             weights_m[i, 0, j] = w[1]
     print('Ensemble weights learned.')
-    training_utils.evaluate_ensemble(model_expert, model_ml, dg, batch_size, eval_config.t0,
-                                     weight_expert=weights_e, weight_ml=weights_m)
+    if not horizon:
+        training_utils.evaluate_ensemble(model_expert, model_ml, dg, batch_size, eval_config.t0,
+                                         weight_expert=weights_e, weight_ml=weights_m)
+    else:
+        res = training_utils.evaluate_ensemble_horizon(model_expert, model_ml, dg, batch_size, eval_config.t0,
+                                         weight_expert=weights_e, weight_ml=weights_m)
+
+        with open(result_path, 'wb') as f:
+            pickle.dump(res, f)
+
+
 
 
 if __name__ == '__main__':
@@ -144,6 +155,8 @@ if __name__ == '__main__':
     parser.add_argument('--eval', default='n', type=str)
     parser.add_argument('--data_path', default='data/datafile_dose_exp.pkl', type=str)
     parser.add_argument('--data_config', default=None, type=str)
+    parser.add_argument('--horizon', default=False, type=bool)
+    parser.add_argument('--result_path', default=None, type=str)
 
     args = parser.parse_args()
     method = args.method
@@ -171,5 +184,5 @@ if __name__ == '__main__':
     eval_config = EvalConfig(t0=args.t0)
 
     run(seed, device, eval_only, data_path, sample, data_config,
-        roche_config, model_config_expert, model_config_ml, optim_config, eval_config)
+        roche_config, model_config_expert, model_config_ml, optim_config, eval_config, args.horizon, args.result_path)
 
