@@ -145,8 +145,7 @@ def run(seed=666,
     }
     pickle.dump(eval_dict, open(init_path + 'residual' + 'eval.pkl', 'wb'))
 
-    # t1_list = [24 + 6, 24 + 12, 24 + 24]
-    t1_list = [24 + 24, 24 + 24 * 3, 24 + 24 * 7]
+    t1_list = [24 + 6, 24 + 12, 24 + 24, 24 + 24 * 3]
 
 
     for t1 in t1_list:

@@ -18,19 +18,12 @@ def run(seed=666,
         encoder_latent_ratio=1.2,
         weight=False,
         eval_only=False):
-    # encoder_latent_ratio = 0.6
-    # ode_step_size = dg.step_size
-    # method='dopri5'
-    # ode_type = 'neural'
 
     np.random.seed(seed)
     torch.manual_seed(seed)
 
     roche_config = RochConfig()
-    # todo: type 3
     dg = dataloader.DataGeneratorReal(2097, 1, 1, 1, roche_config, 1, val_size=100, test_size=1000, latent_dim=10, data_type='5')
-    # data_path = 'private_data/'
-    # dg = dataloader.DataGeneratorReal(2097, 1, 1, 1, roche_config, 1, val_size=100, test_size=1000, latent_dim=10, data_path=data_path)
     dg.split_sample()
     if train_sample_size is not None:
         dg.set_train_size(train_sample_size)
@@ -45,8 +38,6 @@ def run(seed=666,
     t_max = dg.t_max
     step_size = dg.step_size
     t0 = 24
-    # todo: daily
-    # t0 = 24
 
     ode_step_size = dg.step_size / ode_step_div
 
@@ -70,7 +61,6 @@ def run(seed=666,
     shuffle=False
     early_stop=10
     best_on_disk=1e9
-    # niters=1500
     test_freq=100
 
     params = list(vi.encoder.parameters()) + list(vi.decoder.parameters())
@@ -114,9 +104,7 @@ def run(seed=666,
     }
     pickle.dump(eval_dict, open(path + vi.model_name + 'eval.pkl', 'wb'))
 
-    # t1_list = [24 + 6, 24 + 12, 24 + 24]
-    t1_list = [24 + 24, 24 + 24 * 3, 24 + 24 * 7]
-    # t1_list = [3 + 6, 3 + 12, 21]
+    t1_list = [24 + 6, 24 + 12, 24 + 24, 24 + 24 * 3]
 
     for t1 in t1_list:
         a = torch.sum((x[t0:t1]-x_hat[:(t1-t0)]) ** 2 * mask[t0:t1], dim=(0, 2)) / torch.sum(mask[t0:t1], dim=(0, 2))
@@ -144,7 +132,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    weight = args.weight == 'y'        # return dmldt
+    weight = args.weight == 'y'
 
 
     run(seed=args.seed,
