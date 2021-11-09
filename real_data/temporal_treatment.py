@@ -1,7 +1,7 @@
 import pickle
 
 import numpy as np
-import pandas as pds
+import pandas as pd
 from data_warehouse_utils.dataloader import DataLoader
 
 T = 20
@@ -20,13 +20,13 @@ medications.administration_route = medications.administration_route.fillna('intr
 medications = medications[medications.administration_route.isin(['intraveneus', 'INTRAVENEUS'])]
 
 # joining
-adm = pds.read_csv('data/date_admission.csv', index_col=0)
+adm = pd.read_csv('data/date_admission.csv', index_col=0)
 medications = medications[['hash_patient_id', 'start_timestamp', 'total_dose']]
-df_joined = pds.merge(adm, medications, how='left', on=['hash_patient_id'])
-df_joined['time'] = (df_joined['start_timestamp'] - pds.to_datetime(df_joined['date_min'])).dt.days
+df_joined = pd.merge(adm, medications, how='left', on=['hash_patient_id'])
+df_joined['time'] = (df_joined['start_timestamp'] - pd.to_datetime(df_joined['date_min'])).dt.days
 df_joined = df_joined[df_joined['time'] <= T]
 df_mat = df_joined.pivot_table('total_dose', ['hash_patient_id'], 'time', aggfunc='sum').reset_index()
-df_mat = pds.merge(adm, df_mat, how='left', on=['hash_patient_id'])
+df_mat = pd.merge(adm, df_mat, how='left', on=['hash_patient_id'])
 df_mat.to_csv('data/treatment.csv')
 del df_mat['hash_patient_id']
 del df_mat['date_min']

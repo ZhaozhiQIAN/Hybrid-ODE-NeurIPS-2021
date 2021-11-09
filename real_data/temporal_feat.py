@@ -1,4 +1,4 @@
-import pandas as pds
+import pandas as pd
 from data_warehouse_utils.dataloader import DataLoader
 
 # get patient cohort 3 <= dt < 31
@@ -7,8 +7,8 @@ dl = DataLoader()
 patients = dl.get_admissions()
 patients['los'] = patients.discharge_timestamp - patients.admission_timestamp
 
-lo = pds.to_timedelta(3, unit= "D")
-hi = pds.to_timedelta(31, unit= "D")
+lo = pd.to_timedelta(3, unit= "D")
+hi = pd.to_timedelta(31, unit= "D")
 
 patients_filtered = patients[(patients['los'] >= lo) & (patients['los'] < hi)]
 patient_ids = patients_filtered.hash_patient_id

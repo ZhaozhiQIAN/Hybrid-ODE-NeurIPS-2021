@@ -1,7 +1,7 @@
 import pickle
 
 import numpy as np
-import pandas as pds
+import pandas as pd
 from data_warehouse_utils.dataloader import DataLoader
 
 # get 21 days
@@ -46,10 +46,10 @@ d_list = []
 for i in range(len(effects_of_dex)):
     if i == 17:
         continue
-    d = pds.read_csv('data/df_date_{}.csv'.format(i), index_col=0)
+    d = pd.read_csv('data/df_date_{}.csv'.format(i), index_col=0)
     d_list.append(d)
 
-df = pds.concat(d_list)
+df = pd.concat(d_list)
 df['pacmed_name'][df['pacmed_name'] == 'ph_unspecified'] = 'ph_arterial'
 df['pacmed_name'][df['pacmed_name'] == 'lactate_unspecified'] = 'lactate_arterial'
 df['pacmed_name'][df['pacmed_name'] == 'pco2_unspecified'] = 'pco2_arterial'
@@ -60,17 +60,17 @@ df_min = df.groupby('hash_patient_id').agg({'date': 'min'}).reset_index()
 df_min = df_min.rename(columns={'date':'date_min'})
 df_min.head()
 df_min.to_csv('data/date_admission.csv')
-df = pds.merge(df, df_min, on=['hash_patient_id'])
+df = pd.merge(df, df_min, on=['hash_patient_id'])
 
 
-df['date'] = pds.to_datetime(df['date'])
-df['date_min'] = pds.to_datetime(df['date_min'])
+df['date'] = pd.to_datetime(df['date'])
+df['date_min'] = pd.to_datetime(df['date_min'])
 df['days'] = (df.date - df.date_min).dt.days
 
 df = df[df.days <= T]
 
 
-iix_n = pds.MultiIndex.from_product([np.unique(df.days), np.unique(df.hash_patient_id)])
+iix_n = pd.MultiIndex.from_product([np.unique(df.days), np.unique(df.hash_patient_id)])
 
 arr = (df.pivot_table('numerical_value', ['days', 'hash_patient_id'], 'pacmed_name', aggfunc='median')
          .reindex(iix_n).to_numpy()
@@ -113,16 +113,16 @@ comor = [
 dfc = dl.get_comorbidities()
 dfc = dfc[comor + ['hash_patient_id']]
 
-d_pat = pds.DataFrame(df.hash_patient_id.unique(), columns=['hash_patient_id'])
+d_pat = pd.DataFrame(df.hash_patient_id.unique(), columns=['hash_patient_id'])
 
-dfc = pds.merge(d_pat, dfc, on=['hash_patient_id'], how='left').reset_index()
+dfc = pd.merge(d_pat, dfc, on=['hash_patient_id'], how='left').reset_index()
 del dfc['index']
 
 patients = dl.get_episodes()
 patients = patients[static_var + ['hash_patient_id']]
 patients = patients.groupby(['hash_patient_id']).agg('first').reset_index()
 
-dfp = pds.merge(dfc, patients, on=['hash_patient_id'], how='left')
+dfp = pd.merge(dfc, patients, on=['hash_patient_id'], how='left')
 
 dfp.to_csv('data/static_covariates.csv')
 
