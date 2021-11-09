@@ -2,7 +2,6 @@ import torch
 import time
 import numpy as np
 import properscoring as ps
-from global_config import *
 
 
 def variational_training_loop(niters, data_generator, model, batch_size, optimizer, test_freq, best_on_disk=1e9, early_stop=5, path='model/', shuffle=True, train_fold='train'):

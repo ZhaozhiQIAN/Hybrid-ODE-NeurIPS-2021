@@ -1,5 +1,5 @@
 import dataloader
-from sim_config import *
+import sim_config
 import torch.optim as optim
 import torch
 import training_utils
@@ -22,7 +22,7 @@ def run(seed=666,
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    roche_config = RochConfig()
+    roche_config = sim_config.RochConfig()
     dg = dataloader.DataGeneratorReal(2097, 1, 1, 1, roche_config, 1, val_size=100, test_size=1000, latent_dim=10, data_type='5')
     dg.split_sample()
     if train_sample_size is not None:

@@ -4,13 +4,13 @@ import numpy as np
 import torch
 
 import dataloader
-from sim_config import *
+import sim_config
 
 
 val_size=100
 test_size=1000
 
-data_config = DataConfig(n_sample=1000+val_size+test_size)
+data_config = sim_config.DataConfig(n_sample=1000+val_size+test_size)
 n_sample = data_config.n_sample
 
 action_dim = data_config.action_dim
@@ -29,7 +29,7 @@ output_sparsity = 1 - 0.25
 latent_dim = 12
 obs_dim = 80
 
-roche_config = RochConfig(kel=1)
+roche_config = sim_config.RochConfig(kel=1)
 
 seed = 666
 np.random.seed(seed)

@@ -7,7 +7,7 @@ import training_utils
 import numpy as np
 import torch
 import torch.optim as optim
-from sim_config import *
+import sim_config
 
 
 def run(seed: int,
@@ -17,11 +17,11 @@ def run(seed: int,
         init_path,
         data_path,
         sample,
-        data_config: DataConfig,
-        roche_config: RochConfig,
-        model_config: ModelConfig,
-        optim_config: OptimConfig,
-        eval_config: EvalConfig,
+        data_config: sim_config.DataConfig,
+        roche_config: sim_config.RochConfig,
+        model_config: sim_config.ModelConfig,
+        optim_config: sim_config.OptimConfig,
+        eval_config: sim_config.EvalConfig,
         encoder_output_dim=None,
         ablate=False,
         arg_itr=None,
@@ -136,19 +136,19 @@ if __name__ == '__main__':
     assert eval_only
 
     if dc == 'dim8':
-        data_config = dim8_config
+        data_config = sim_config.dim8_config
     elif dc == 'dim12':
-        data_config = dim12_config
+        data_config = sim_config.dim12_config
     else:
-        data_config = DataConfig(n_sample=sample)
-    roche_config = RochConfig()
+        data_config = sim_config.DataConfig(n_sample=sample)
+    roche_config = sim_config.RochConfig()
     if method == 'expert':
-        model_config = ModelConfig(expert_only=True, path=path)
+        model_config = sim_config.ModelConfig(expert_only=True, path=path)
     elif method == 'neural':
-        model_config = ModelConfig(neural_ode=True, path=path)
+        model_config = sim_config.ModelConfig(neural_ode=True, path=path)
     elif method == 'hybrid':
-        model_config = ModelConfig(path=path)
+        model_config = sim_config.ModelConfig(path=path)
 
-    optim_config = OptimConfig(shuffle=False, n_restart=restart, batch_size=batch_size, lr=args.lr)
-    eval_config = EvalConfig(t0=args.t0)
+    optim_config = sim_config.OptimConfig(shuffle=False, n_restart=restart, batch_size=batch_size, lr=args.lr)
+    eval_config = sim_config.EvalConfig(t0=args.t0)
     run(seed, elbo, device, eval_only, init_path, data_path, sample, data_config, roche_config, model_config, optim_config, eval_config, encoder_output_dim, args.ablate, arg_itr, args.result_path)

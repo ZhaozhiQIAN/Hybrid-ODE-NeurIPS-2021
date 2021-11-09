@@ -4,8 +4,7 @@ import pandas as pds
 import matplotlib.pyplot as plt
 from typing import NamedTuple
 import torch
-from global_config import *
-from sim_config import *
+from global_config import DTYPE, get_device
 import pickle
 
 

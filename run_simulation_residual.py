@@ -7,7 +7,7 @@ import training_utils
 import numpy as np
 import torch
 import torch.optim as optim
-from sim_config import *
+import sim_config
 
 
 def init_and_load(data_config, optim_config, model_config, dg, init_path=None):
@@ -51,12 +51,12 @@ def run(seed: int,
         eval_only,
         data_path,
         sample,
-        data_config: DataConfig,
-        roche_config: RochConfig,
-        model_config_expert: ModelConfig,
-        model_config_ml: ModelConfig,
-        optim_config: OptimConfig,
-        eval_config: EvalConfig,
+        data_config: sim_config.DataConfig,
+        roche_config: sim_config.RochConfig,
+        model_config_expert: sim_config.ModelConfig,
+        model_config_ml: sim_config.ModelConfig,
+        optim_config: sim_config.OptimConfig,
+        eval_config: sim_config.EvalConfig,
         horizon=False,
         result_path=None):
     np.random.seed(seed)
@@ -185,18 +185,18 @@ if __name__ == '__main__':
         res_path = args.res_path
 
     if dc == 'dim8':
-        data_config = dim8_config
+        data_config = sim_config.dim8_config
     elif dc == 'dim12':
-        data_config = dim12_config
+        data_config = sim_config.dim12_config
     else:
-        data_config = DataConfig(n_sample=sample)
-    roche_config = RochConfig()
+        data_config = sim_config.DataConfig(n_sample=sample)
+    roche_config = sim_config.RochConfig()
 
-    model_config_expert = ModelConfig(expert_only=True, path=path)
-    model_config_ml = ModelConfig(neural_ode=True, path=res_path)
+    model_config_expert = sim_config.ModelConfig(expert_only=True, path=path)
+    model_config_ml = sim_config.ModelConfig(neural_ode=True, path=res_path)
 
-    optim_config = OptimConfig(shuffle=False, n_restart=restart, lr=args.lr)
-    eval_config = EvalConfig(t0=args.t0)
+    optim_config = sim_config.OptimConfig(shuffle=False, n_restart=restart, lr=args.lr)
+    eval_config = sim_config.EvalConfig(t0=args.t0)
 
     run(seed, device, eval_only, data_path, sample, data_config,
         roche_config, model_config_expert, model_config_ml, optim_config, eval_config, args.horizon, args.result_path)

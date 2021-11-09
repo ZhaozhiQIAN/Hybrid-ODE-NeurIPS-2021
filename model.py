@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.distributions as dist
-from global_config import *
-from sim_config import RochConfig
+from global_config import DTYPE, get_device
+import sim_config
 # from torchdiffeq import odeint_adjoint as odeint
 from torchdiffeq import odeint as dto
 # from TorchDiffEqPack.odesolver import ode_solver
@@ -471,7 +471,7 @@ class RocheODE(nn.Module):
         self.t_max = t_max
         self.step_size = step_size
 
-        dc = RochConfig()
+        dc = sim_config.RochConfig()
         self.HillCure = nn.Parameter(torch.tensor(dc.HillCure, device=self.device, dtype=dtype))
         self.HillPatho = nn.Parameter(torch.tensor(dc.HillPatho, device=self.device, dtype=dtype))
         self.ec50_patho = nn.Parameter(torch.tensor(dc.ec50_patho, device=self.device, dtype=dtype))
@@ -959,7 +959,7 @@ class NeuralODE(nn.Module):
         self.t_max = t_max
         self.step_size = step_size
 
-        dc = RochConfig()
+        dc = sim_config.RochConfig()
         self.kel = nn.Parameter(torch.tensor(dc.kel, device=self.device, dtype=dtype))
 
         self.ml_net = nn.Sequential(
