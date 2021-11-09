@@ -17,7 +17,6 @@ def init_and_load(data_config, optim_config, model_config, dg, init_path=None):
     step_size = data_config.step_size
     ode_method = optim_config.ode_method
 
-
     # model config
     encoder_latent_ratio = model_config.encoder_latent_ratio
     if model_config.expert_only:
@@ -34,36 +33,45 @@ def init_and_load(data_config, optim_config, model_config, dg, init_path=None):
         roche = True
         normalize = True
 
-
-    encoder = model.EncoderLSTM(obs_dim+action_dim, int(obs_dim*encoder_latent_ratio), encoder_output_dim, device=dg.device, normalize=normalize)
-    decoder = model.RocheExpertDecoder(obs_dim, encoder_output_dim, action_dim, t_max, step_size, roche=roche, method=ode_method, device=dg.device)
+    encoder = model.EncoderLSTM(
+        obs_dim + action_dim,
+        int(obs_dim * encoder_latent_ratio),
+        encoder_output_dim,
+        device=dg.device,
+        normalize=normalize,
+    )
+    decoder = model.RocheExpertDecoder(
+        obs_dim, encoder_output_dim, action_dim, t_max, step_size, roche=roche, method=ode_method, device=dg.device
+    )
 
     vi = model.VariationalInference(encoder, decoder, prior_log_pdf=prior, elbo=True)
 
     if init_path is not None:
         checkpoint = torch.load(init_path + vi.model_name)
-        vi.encoder.load_state_dict(checkpoint['encoder_state_dict'])
-        vi.decoder.load_state_dict(checkpoint['decoder_state_dict'])
+        vi.encoder.load_state_dict(checkpoint["encoder_state_dict"])
+        vi.decoder.load_state_dict(checkpoint["decoder_state_dict"])
     return vi
 
 
-def run(seed: int,
-        device,
-        eval_only,
-        data_path,
-        sample,
-        data_config: sim_config.DataConfig,
-        roche_config: sim_config.RochConfig,
-        model_config_expert: sim_config.ModelConfig,
-        model_config_ml: sim_config.ModelConfig,
-        optim_config: sim_config.OptimConfig,
-        eval_config: sim_config.EvalConfig,
-        horizon=False,
-        result_path=None):
+def run(
+    seed: int,
+    device,
+    eval_only,
+    data_path,
+    sample,
+    data_config: sim_config.DataConfig,
+    roche_config: sim_config.RochConfig,
+    model_config_expert: sim_config.ModelConfig,
+    model_config_ml: sim_config.ModelConfig,
+    optim_config: sim_config.OptimConfig,
+    eval_config: sim_config.EvalConfig,
+    horizon=False,
+    result_path=None,
+):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-    device = torch.device('cuda:' + str(device) if device != 'c' and torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda:" + str(device) if device != "c" and torch.cuda.is_available() else "cpu")
 
     # data config
     n_sample = sample
@@ -74,7 +82,7 @@ def run(seed: int,
     # with open('data/datafile.pkl', 'rb') as f:
     #     dg = pickle.load(f)
 
-    with open(data_path, 'rb') as f:
+    with open(data_path, "rb") as f:
         dg = pickle.load(f)
 
     # with open('data/datafile_high_dim.pkl', 'rb') as f:
@@ -92,9 +100,9 @@ def run(seed: int,
 
     # calculate ensemble weight
     # size = min(dg.train_size, dg.val_size)
-    x = dg.data_val['measurements'][:, :n_sample, :]
-    a = dg.data_val['actions'][:, :n_sample, :]
-    mask = dg.data_val['masks'][:, :n_sample, :]
+    x = dg.data_val["measurements"][:, :n_sample, :]
+    a = dg.data_val["actions"][:, :n_sample, :]
+    mask = dg.data_val["masks"][:, :n_sample, :]
 
     print(a.shape)
 
@@ -128,35 +136,35 @@ def run(seed: int,
         for j in range(x.shape[2]):
             weights_e[i, 0, j] = w[0]
             weights_m[i, 0, j] = w[1]
-    print('Ensemble weights learned.')
+    print("Ensemble weights learned.")
     if not horizon:
-        training_utils.evaluate_ensemble(model_expert, model_ml, dg, batch_size, eval_config.t0,
-                                         weight_expert=weights_e, weight_ml=weights_m)
+        training_utils.evaluate_ensemble(
+            model_expert, model_ml, dg, batch_size, eval_config.t0, weight_expert=weights_e, weight_ml=weights_m
+        )
     else:
-        res = training_utils.evaluate_ensemble_horizon(model_expert, model_ml, dg, batch_size, eval_config.t0,
-                                         weight_expert=weights_e, weight_ml=weights_m)
+        res = training_utils.evaluate_ensemble_horizon(
+            model_expert, model_ml, dg, batch_size, eval_config.t0, weight_expert=weights_e, weight_ml=weights_m
+        )
 
-        with open(result_path, 'wb') as f:
+        with open(result_path, "wb") as f:
             pickle.dump(res, f)
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     # parse arguments
-    parser = argparse.ArgumentParser('PKPD simulation')
-    parser.add_argument('--method', choices=['ensemble'], default='ensemble', type=str)
-    parser.add_argument('--device', choices=['0', '1', 'c'], default='1', type=str)
-    parser.add_argument('--seed', default=666, type=int)
-    parser.add_argument('--sample', default=1000, type=int)
-    parser.add_argument('--path', default=None, type=str)
-    parser.add_argument('--t0', default=5, type=int)
-    parser.add_argument('--restart', default=5, type=int)
-    parser.add_argument('--eval', default='n', type=str)
-    parser.add_argument('--data_path', default='data/datafile_dose_exp.pkl', type=str)
-    parser.add_argument('--data_config', default=None, type=str)
-    parser.add_argument('--horizon', default=False, type=bool)
-    parser.add_argument('--result_path', default=None, type=str)
+    parser = argparse.ArgumentParser("PKPD simulation")
+    parser.add_argument("--method", choices=["ensemble"], default="ensemble", type=str)
+    parser.add_argument("--device", choices=["0", "1", "c"], default="1", type=str)
+    parser.add_argument("--seed", default=666, type=int)
+    parser.add_argument("--sample", default=1000, type=int)
+    parser.add_argument("--path", default=None, type=str)
+    parser.add_argument("--t0", default=5, type=int)
+    parser.add_argument("--restart", default=5, type=int)
+    parser.add_argument("--eval", default="n", type=str)
+    parser.add_argument("--data_path", default="data/datafile_dose_exp.pkl", type=str)
+    parser.add_argument("--data_config", default=None, type=str)
+    parser.add_argument("--horizon", default=False, type=bool)
+    parser.add_argument("--result_path", default=None, type=str)
 
     args = parser.parse_args()
     method = args.method
@@ -165,13 +173,13 @@ if __name__ == '__main__':
     path = args.path
     sample = args.sample
     restart = args.restart
-    eval_only = args.eval == 'y'
+    eval_only = args.eval == "y"
     data_path = args.data_path
     dc = args.data_config
 
-    if dc == 'dim8':
+    if dc == "dim8":
         data_config = sim_config.dim8_config
-    elif dc == 'dim12':
+    elif dc == "dim12":
         data_config = sim_config.dim12_config
     else:
         data_config = sim_config.DataConfig(n_sample=sample)
@@ -183,6 +191,18 @@ if __name__ == '__main__':
     optim_config = sim_config.OptimConfig(shuffle=False, n_restart=restart)
     eval_config = sim_config.EvalConfig(t0=args.t0)
 
-    run(seed, device, eval_only, data_path, sample, data_config,
-        roche_config, model_config_expert, model_config_ml, optim_config, eval_config, args.horizon, args.result_path)
-
+    run(
+        seed,
+        device,
+        eval_only,
+        data_path,
+        sample,
+        data_config,
+        roche_config,
+        model_config_expert,
+        model_config_ml,
+        optim_config,
+        eval_config,
+        args.horizon,
+        args.result_path,
+    )

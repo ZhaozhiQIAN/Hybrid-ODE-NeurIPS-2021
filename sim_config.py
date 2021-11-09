@@ -28,42 +28,33 @@ class DataConfig(NamedTuple):
     step_size: int = 1
     sparsity: float = 0.5
     output_sparsity: float = 0.5
-    output_sigma: float = 0.1 # 0.3
+    output_sigma: float = 0.1  # 0.3
     dose_max: float = 1
     p_remove: float = 0.5
 
 
-dim8_config = DataConfig(
-    obs_dim=40,
-    latent_dim=8,
-    output_sparsity=1 - 0.375,
-    output_sigma=0.2,
-    dose_max=10
-)
+dim8_config = DataConfig(obs_dim=40, latent_dim=8, output_sparsity=1 - 0.375, output_sigma=0.2, dose_max=10)
 
-dim12_config = DataConfig(
-    obs_dim=80,
-    latent_dim=12,
-    output_sparsity=1 - 0.25,
-    output_sigma=0.2,
-    dose_max=10
-)
+dim12_config = DataConfig(obs_dim=80, latent_dim=12, output_sparsity=1 - 0.25, output_sigma=0.2, dose_max=10)
+
 
 class ModelConfig(NamedTuple):
-    encoder_latent_ratio: float = 2.
+    encoder_latent_ratio: float = 2.0
     expert_only: bool = False
     neural_ode: bool = False
-    path: str = 'model/'
+    path: str = "model/"
+
 
 class OptimConfig(NamedTuple):
     lr: float = 0.01
-    ode_method: str = 'dopri5'
+    ode_method: str = "dopri5"
     niters: int = 400
     batch_size: int = 50
     test_freq: int = 10
     shuffle: bool = True
     n_restart: int = 5
     early_stop: int = 10
+
 
 class EvalConfig(NamedTuple):
     t0: int = 5

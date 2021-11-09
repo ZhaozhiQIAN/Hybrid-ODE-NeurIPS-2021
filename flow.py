@@ -23,7 +23,7 @@ class Planar(nn.Module):
     def der_h(self, x):
         """ Derivative of tanh """
 
-        return 1 - self.h(x)**2
+        return 1 - self.h(x) ** 2
 
     def forward(self, zk, u, w, b):
         """
@@ -43,8 +43,8 @@ class Planar(nn.Module):
 
         # reparameterize u such that the flow becomes invertible (see appendix paper)
         uw = torch.bmm(w, u)
-        m_uw = -1. + self.softplus(uw)
-        w_norm_sq = torch.sum(w**2, dim=2, keepdim=True)
+        m_uw = -1.0 + self.softplus(uw)
+        w_norm_sq = torch.sum(w ** 2, dim=2, keepdim=True)
         u_hat = u + ((m_uw - uw) * w.transpose(2, 1) / w_norm_sq)
 
         # compute flow with u_hat
@@ -76,15 +76,15 @@ class Sylvester(nn.Module):
         triu_mask = torch.triu(torch.ones(num_ortho_vecs, num_ortho_vecs), diagonal=1).unsqueeze(0)
         diag_idx = torch.arange(0, num_ortho_vecs).long()
 
-        self.register_buffer('triu_mask', Variable(triu_mask))
+        self.register_buffer("triu_mask", Variable(triu_mask))
         self.triu_mask.requires_grad = False
-        self.register_buffer('diag_idx', diag_idx)
+        self.register_buffer("diag_idx", diag_idx)
 
     def der_h(self, x):
         return self.der_tanh(x)
 
     def der_tanh(self, x):
-        return 1 - self.h(x)**2
+        return 1 - self.h(x) ** 2
 
     def _forward(self, zk, r1, r2, q_ortho, b, sum_ldj=True):
         """
@@ -122,7 +122,7 @@ class Sylvester(nn.Module):
         # Output log_det_j in shape (batch_size) instead of (batch_size,1)
         diag_j = diag_r1 * diag_r2
         diag_j = self.der_h(r2qzb).squeeze(1) * diag_j
-        diag_j += 1.
+        diag_j += 1.0
         log_diag_j = diag_j.abs().log()
 
         if sum_ldj:
@@ -150,13 +150,13 @@ class TriangularSylvester(nn.Module):
         self.h = nn.Tanh()
 
         diag_idx = torch.arange(0, z_size).long()
-        self.register_buffer('diag_idx', diag_idx)
+        self.register_buffer("diag_idx", diag_idx)
 
     def der_h(self, x):
         return self.der_tanh(x)
 
     def der_tanh(self, x):
-        return 1 - self.h(x)**2
+        return 1 - self.h(x) ** 2
 
     def _forward(self, zk, r1, r2, b, permute_z=None, sum_ldj=True):
         """
@@ -201,7 +201,7 @@ class TriangularSylvester(nn.Module):
         # Output log_det_j in shape (batch_size) instead of (batch_size,1)
         diag_j = diag_r1 * diag_r2
         diag_j = self.der_h(r2qzb).squeeze(1) * diag_j
-        diag_j += 1.
+        diag_j += 1.0
         log_diag_j = diag_j.abs().log()
 
         if sum_ldj:
@@ -214,4 +214,3 @@ class TriangularSylvester(nn.Module):
     def forward(self, zk, r1, r2, q_ortho, b, sum_ldj=True):
 
         return self._forward(zk, r1, r2, q_ortho, b, sum_ldj)
-

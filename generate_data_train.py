@@ -28,13 +28,24 @@ seed = 666
 np.random.seed(seed)
 torch.manual_seed(seed)
 
-device = torch.device('cpu')
+device = torch.device("cpu")
 
-dg = dataloader.DataGeneratorRoche(n_sample, obs_dim, t_max, step_size,
-                                   roche_config, output_sigma, dose_max, latent_dim, sparsity,
-                                   p_remove=p_remove, output_sparsity=output_sparsity, device=device)
+dg = dataloader.DataGeneratorRoche(
+    n_sample,
+    obs_dim,
+    t_max,
+    step_size,
+    roche_config,
+    output_sigma,
+    dose_max,
+    latent_dim,
+    sparsity,
+    p_remove=p_remove,
+    output_sparsity=output_sparsity,
+    device=device,
+)
 dg.generate_data()
 dg.split_sample()
 
-with open('data/datafile_dose_exp.pkl', 'wb') as f:
+with open("data/datafile_dose_exp.pkl", "wb") as f:
     pickle.dump(dg, f)
