@@ -1,11 +1,10 @@
+import pickle
+
 import numpy as np
 import scipy.integrate
-import pandas as pds
-import matplotlib.pyplot as plt
-from typing import NamedTuple
 import torch
+
 from global_config import DTYPE, get_device
-import pickle
 
 
 class DataGeneratorRoche:

@@ -1,6 +1,7 @@
-import torch
-import pickle
 import argparse
+import pickle
+
+import torch
 
 if __name__ == '__main__':
     # parse arguments

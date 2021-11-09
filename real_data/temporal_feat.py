@@ -1,6 +1,5 @@
-from data_warehouse_utils.dataloader import DataLoader
-
 import pandas as pds
+from data_warehouse_utils.dataloader import DataLoader
 
 # get patient cohort 3 <= dt < 31
 dl = DataLoader()

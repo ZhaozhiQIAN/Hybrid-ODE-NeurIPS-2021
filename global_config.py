@@ -1,6 +1,5 @@
 import torch
 
-
 DTYPE = torch.float32
 
 def get_device():

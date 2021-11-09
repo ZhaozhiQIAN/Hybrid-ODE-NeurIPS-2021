@@ -1,8 +1,8 @@
-from data_warehouse_utils.dataloader import DataLoader
-import pandas as pds
-import numpy as np
-import time
 import pickle
+
+import numpy as np
+import pandas as pds
+from data_warehouse_utils.dataloader import DataLoader
 
 T = 20
 

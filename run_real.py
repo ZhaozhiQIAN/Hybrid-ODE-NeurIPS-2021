@@ -1,12 +1,15 @@
-import dataloader
-import sim_config
-import torch.optim as optim
-import torch
-import training_utils
-import numpy as np
-import model
 import argparse
 import pickle
+
+import numpy as np
+import torch
+import torch.optim as optim
+
+import dataloader
+import model
+import sim_config
+import training_utils
+
 
 def run(seed=666,
         train_sample_size=None,

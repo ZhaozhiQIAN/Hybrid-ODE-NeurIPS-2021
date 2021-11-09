@@ -1,15 +1,18 @@
-import torch
-import torch.nn as nn
-import torch.distributions as dist
-from global_config import DTYPE, get_device
-import sim_config
-# from torchdiffeq import odeint_adjoint as odeint
-from torchdiffeq import odeint as dto
-# from TorchDiffEqPack.odesolver import ode_solver
-import flow as flows
 import os
+
 # import torchcde
 import numpy as np
+import torch
+import torch.distributions as dist
+import torch.nn as nn
+# from torchdiffeq import odeint_adjoint as odeint
+from torchdiffeq import odeint as dto
+
+# from TorchDiffEqPack.odesolver import ode_solver
+import flow as flows
+import sim_config
+from global_config import DTYPE, get_device
+
 
 class GaussianReparam:
     """

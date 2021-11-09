@@ -1,5 +1,6 @@
 from typing import NamedTuple
 
+
 class RochConfig(NamedTuple):
     HillCure: float = 2
     HillPatho: float = 2

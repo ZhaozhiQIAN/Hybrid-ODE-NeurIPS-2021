@@ -6,7 +6,6 @@ import torch
 import dataloader
 import sim_config
 
-
 val_size=100
 test_size=1000
 

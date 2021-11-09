@@ -1,6 +1,7 @@
+import pickle
+
 import numpy as np
 import pandas as pds
-import pickle
 from data_warehouse_utils.dataloader import DataLoader
 
 # get 21 days

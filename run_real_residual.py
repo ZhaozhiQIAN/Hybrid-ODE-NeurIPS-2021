@@ -1,13 +1,14 @@
-import dataloader
-import sim_config
-from scipy.optimize import nnls
-import torch
-import training_utils
-import numpy as np
-import model
 import argparse
-import torch.optim as optim
 import pickle
+
+import numpy as np
+import torch
+import torch.optim as optim
+
+import dataloader
+import model
+import sim_config
+import training_utils
 
 
 def init_and_load(dg, encoder_output_dim, encoder_latent_ratio, ode_step_div, method, ode_method, init_path, t0=24):

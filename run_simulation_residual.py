@@ -1,13 +1,13 @@
 import argparse
 import pickle
-from scipy.optimize import nnls
-import dataloader
-import model
-import training_utils
+
 import numpy as np
 import torch
 import torch.optim as optim
+
+import model
 import sim_config
+import training_utils
 
 
 def init_and_load(data_config, optim_config, model_config, dg, init_path=None):
