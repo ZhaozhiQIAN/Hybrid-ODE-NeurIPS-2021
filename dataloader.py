@@ -230,7 +230,7 @@ class DataGeneratorRoche:
         # normalize the measurements
         self.measurements = (measurements - torch.mean(measurements, dim=(0, 1))) / torch.std(measurements, dim=(0, 1))
 
-        # creat irregular samples
+        # create irregular samples
         selected = (torch.rand_like(measurements) > self.p_remove) * 1.
 
         self.masks = masks * selected
