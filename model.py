@@ -1128,6 +1128,8 @@ class RocheExpertDecoder(nn.Module):
 
 
 class VariationalInference:
+    epsilon = torch.finfo(DTYPE).eps
+
     def __init__(self, encoder, decoder, elbo=True, prior_log_pdf=None, mc_size=100):
         self.encoder = encoder
         self.decoder = decoder
@@ -1206,7 +1208,7 @@ class VariationalInference:
             # sample from q(z)
             z = self.encoder.reparameterize(mu, log_var)
             # todo
-            z[z < 0] = 1e-9
+            z[z <= 0.] = self.epsilon
             # log p(z)
             log_p = self.prior_log_pdf(z)
             # log q(z)
