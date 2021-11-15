@@ -102,3 +102,11 @@ ENV/
 
 # Custom
 data/
+model/
+
+results/
+!results/exp_flow.csv
+!results/exp_lhm.csv
+!results/results_dim.txt
+!results/results_noise.txt
+!results/results_sample.txt
