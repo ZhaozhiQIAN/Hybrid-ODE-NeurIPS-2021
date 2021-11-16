@@ -1,20 +1,23 @@
-import torch
-import torch.nn as nn
-import torch.distributions as dist
-from global_config import *
-from sim_config import RochConfig
-# from torchdiffeq import odeint_adjoint as odeint
-from torchdiffeq import odeint as dto
-# from TorchDiffEqPack.odesolver import ode_solver
-import flow as flows
 import os
+
 # import torchcde
 import numpy as np
+import torch
+import torch.distributions as dist
+import torch.nn as nn
+
+# from torchdiffeq import odeint_adjoint as odeint
+from torchdiffeq import odeint as dto
+
+# from TorchDiffEqPack.odesolver import ode_solver
+import flow as flows
+import sim_config
+from global_config import DTYPE, get_device
+
 
 class GaussianReparam:
-    """
-    Independent Gaussian posterior with re-parameterization trick
-    """
+    """Independent Gaussian posterior with re-parameterization trick."""
+
     @staticmethod
     def reparameterize(mu, log_var):
         std = torch.exp(0.5 * log_var)
@@ -27,11 +30,13 @@ class GaussianReparam:
         log_p = torch.sum(n.log_prob(z), dim=-1)
         return log_p
 
+
 class StandardNormalPrior:
     @staticmethod
     def log_density(z):
         n = dist.normal.Normal(torch.tensor([0.0]).to(z), torch.tensor([1.0]).to(z))
         return torch.sum(n.log_prob(z), dim=-1)
+
 
 class ExponentialPrior:
     @staticmethod
@@ -50,7 +55,7 @@ class EncoderPlanarLSTM(nn.Module):
 
         self.hidden_dim = hidden_dim
         self.normalize = normalize
-        self.model_name = 'PlanarLSTMEncoder'
+        self.model_name = "PlanarLSTMEncoder"
 
         self.lstm = nn.LSTM(input_dim, hidden_dim).to(self.device)
 
@@ -63,7 +68,7 @@ class EncoderPlanarLSTM(nn.Module):
         self.z_size = output_dim
 
         # Initialize log-det-jacobian to zero
-        self.log_det_j = 0.
+        self.log_det_j = 0.0
 
         # Flow parameters
         flow = flows.Planar
@@ -77,7 +82,7 @@ class EncoderPlanarLSTM(nn.Module):
         # Normalizing flow layers
         for k in range(self.num_flows):
             flow_k = flow().to(self.device)
-            self.add_module('flow_' + str(k), flow_k)
+            self.add_module("flow_" + str(k), flow_k)
 
     def forward(self, x, a, mask):
         # y and t are the first k observations
@@ -91,7 +96,7 @@ class EncoderPlanarLSTM(nn.Module):
         hidden = None
 
         for t in reversed(range(t_max)):
-            obs = y_in[t:t + 1, ...] * mask_in[t:t + 1, ...]
+            obs = y_in[t : t + 1, ...] * mask_in[t : t + 1, ...]
             out, hidden = self.lstm(obs, hidden)
 
         out_linear = self.lin(out)
@@ -116,28 +121,28 @@ class EncoderPlanarLSTM(nn.Module):
             # mu = mu * mask
 
             # scale var
-            log_var = log_var - 5.
+            log_var = log_var - 5.0
 
         return mu, log_var, u, w, b
 
     def reparameterize(self, mu, log_var, u, w, b):
 
-        log_det_j = 0.
+        log_det_j = 0.0
 
         # Sample z_0
         z = [GaussianReparam.reparameterize(mu, log_var)]
 
         # Normalizing flows
         for k in range(self.num_flows):
-            flow_k = getattr(self, 'flow_' + str(k))
+            flow_k = getattr(self, "flow_" + str(k))
             z_k, log_det_jacobian = flow_k(z[k], u[:, k, :, :], w[:, k, :, :], b[:, k, :, :])
             z.append(z_k)
             log_det_j += log_det_jacobian
 
         # todo: add one normalization layer
-        z_exp = torch.exp(z_k - 5.)
+        z_exp = torch.exp(z_k - 5.0)
         z.append(z_exp)
-        log_det_j += torch.sum(z_k - 5., dim=-1)
+        log_det_j += torch.sum(z_k - 5.0, dim=-1)
 
         return mu, log_var, z[-1], log_det_j, z[0]
 
@@ -164,7 +169,7 @@ class F(nn.Module):
         self.linear = nn.Sequential(
             nn.Linear(hidden_channels, hidden_channels * input_channels + 1),
             nn.Tanh(),
-            nn.Linear(hidden_channels * input_channels + 1, hidden_channels * input_channels)
+            nn.Linear(hidden_channels * input_channels + 1, hidden_channels * input_channels),
         )
 
     def forward(self, t, z):
@@ -173,7 +178,7 @@ class F(nn.Module):
 
 
 class EncoderLSTMReal(nn.Module, GaussianReparam):
-    def __init__(self, input_dim, hidden_dim, output_dim, output_all=False, reverse=True, normalize= True, device=None):
+    def __init__(self, input_dim, hidden_dim, output_dim, output_all=False, reverse=True, normalize=True, device=None):
         super(EncoderLSTMReal, self).__init__()
 
         if device is None:
@@ -184,7 +189,7 @@ class EncoderLSTMReal(nn.Module, GaussianReparam):
         self.hidden_dim = hidden_dim
         self.normalize = normalize
         self.output_dim = output_dim
-        self.model_name = 'LSTMReal'
+        self.model_name = "LSTMReal"
 
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
@@ -192,17 +197,11 @@ class EncoderLSTMReal(nn.Module, GaussianReparam):
 
         # The linear layer that maps from hidden state space to output space: predict mean
         self.lin = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim + 1),
-            nn.Tanh(),
-            nn.Linear(hidden_dim + 1, output_dim),
-            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim + 1), nn.Tanh(), nn.Linear(hidden_dim + 1, output_dim), nn.Tanh(),
         ).to(self.device)
 
         self.log_var = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim + 1),
-            nn.Tanh(),
-            nn.Linear(hidden_dim + 1, output_dim),
-            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim + 1), nn.Tanh(), nn.Linear(hidden_dim + 1, output_dim), nn.Tanh(),
         ).to(self.device)
 
         self.reverse = reverse
@@ -225,7 +224,7 @@ class EncoderLSTMReal(nn.Module, GaussianReparam):
         hidden = None
         out_list = list()
         for t in range(t_max):
-            obs = x_in[t:t + 1, ...]
+            obs = x_in[t : t + 1, ...]
             out, hidden = self.lstm(obs, hidden)
             out_list.append(out)
 
@@ -332,14 +331,14 @@ class LSTMBaseline(nn.Module):
         self.hidden_dim = hidden_dim
         self.normalize = normalize
         self.output_dim = output_dim
-        self.model_name = 'LSTMBaseline'
+        self.model_name = "LSTMBaseline"
 
         self.lstm = nn.LSTM(input_dim, hidden_dim).to(self.device)
 
         self.out = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim + 1, bias=True),
             nn.ELU(),
-            nn.Linear(self.hidden_dim + 1, self.output_dim, bias=True)
+            nn.Linear(self.hidden_dim + 1, self.output_dim, bias=True),
         ).to(self.device)
 
     def forward(self, x, a, mask):
@@ -358,10 +357,10 @@ class LSTMBaseline(nn.Module):
         return pred
 
     def loss(self, data):
-        x = data['measurements']
-        a = data['actions']
-        mask = data['masks']
-        s = data['statics']
+        x = data["measurements"]
+        a = data["actions"]
+        mask = data["masks"]
+        s = data["statics"]
 
         # q
         a_in = torch.cat([a, s], dim=-1)
@@ -378,15 +377,10 @@ class LSTMBaseline(nn.Module):
         path = path + self.model_name
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        torch.save({
-            'itr': itr,
-            'state_dict': self.state_dict(),
-            'best_loss': best_loss,
-        }, path)
+        torch.save({"itr": itr, "state_dict": self.state_dict(), "best_loss": best_loss,}, path)
 
 
 class EncoderLSTM(nn.Module, GaussianReparam):
-
     def __init__(self, input_dim, hidden_dim, output_dim, normalize=True, device=None):
         # output dim is the dim of initial condition
         # input dim is observation and action
@@ -400,7 +394,7 @@ class EncoderLSTM(nn.Module, GaussianReparam):
 
         self.hidden_dim = hidden_dim
         self.normalize = normalize
-        self.model_name = 'LSTMEncoder'
+        self.model_name = "LSTMEncoder"
 
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
@@ -424,7 +418,7 @@ class EncoderLSTM(nn.Module, GaussianReparam):
         hidden = None
 
         for t in reversed(range(t_max)):
-            obs = y_in[t:t + 1, ...] * mask_in[t:t + 1, ...]
+            obs = y_in[t : t + 1, ...] * mask_in[t : t + 1, ...]
             out, hidden = self.lstm(obs, hidden)
         out_linear = self.lin(out)
         log_var = self.log_var(out)
@@ -441,7 +435,7 @@ class EncoderLSTM(nn.Module, GaussianReparam):
             # mu = mu * mask
 
             # scale var
-            log_var = log_var - 5.
+            log_var = log_var - 5.0
 
         return mu, log_var
 
@@ -450,7 +444,6 @@ class EncoderLSTM(nn.Module, GaussianReparam):
 
 
 class RocheODE(nn.Module):
-
     def __init__(self, latent_dim, action_dim, t_max, step_size, ablate=False, device=None, dtype=DTYPE):
         super().__init__()
 
@@ -471,13 +464,15 @@ class RocheODE(nn.Module):
         self.t_max = t_max
         self.step_size = step_size
 
-        dc = RochConfig()
+        dc = sim_config.RochConfig()
         self.HillCure = nn.Parameter(torch.tensor(dc.HillCure, device=self.device, dtype=dtype))
         self.HillPatho = nn.Parameter(torch.tensor(dc.HillPatho, device=self.device, dtype=dtype))
         self.ec50_patho = nn.Parameter(torch.tensor(dc.ec50_patho, device=self.device, dtype=dtype))
         self.emax_patho = nn.Parameter(torch.tensor(dc.emax_patho, device=self.device, dtype=dtype))
         self.k_dexa = nn.Parameter(torch.tensor(dc.k_dexa, device=self.device, dtype=dtype))
-        self.k_discure_immunereact = nn.Parameter(torch.tensor(dc.k_discure_immunereact, device=self.device, dtype=dtype))
+        self.k_discure_immunereact = nn.Parameter(
+            torch.tensor(dc.k_discure_immunereact, device=self.device, dtype=dtype)
+        )
         self.k_discure_immunity = nn.Parameter(torch.tensor(dc.k_discure_immunity, device=self.device, dtype=dtype))
         self.k_disprog = nn.Parameter(torch.tensor(dc.k_disprog, device=self.device, dtype=dtype))
         self.k_immune_disease = nn.Parameter(torch.tensor(dc.k_immune_disease, device=self.device, dtype=dtype))
@@ -490,10 +485,7 @@ class RocheODE(nn.Module):
             self.theta_2 = nn.Parameter(torch.tensor(2, device=self.device, dtype=dtype))
 
         if self.expanded:
-            self.ml_net = nn.Sequential(
-                nn.Linear(self.latent_dim, self.ml_dim),
-                nn.Tanh()
-            ).to(self.device)
+            self.ml_net = nn.Sequential(nn.Linear(self.latent_dim, self.ml_dim), nn.Tanh()).to(self.device)
         else:
             self.ml_net = nn.Identity().to(self.device)
 
@@ -517,7 +509,8 @@ class RocheODE(nn.Module):
     def dose_at_time(self, t):
         # self.t = t
         return self.dosage * torch.sum(
-            torch.exp(self.kel * (self.times - t) * (t >= self.times)) * (t >= self.times), dim=-1)
+            torch.exp(self.kel * (self.times - t) * (t >= self.times)) * (t >= self.times), dim=-1
+        )
 
     def forward(self, t, y):
         # y: B, D
@@ -531,25 +524,29 @@ class RocheODE(nn.Module):
         if not self.ablate:
             Dose = self.dose_at_time(t)
 
-            dxdt1 = Disease * self.k_disprog - \
-                    Disease * Immunity ** self.HillCure * self.k_discure_immunity - \
-                    Disease * ImmuneReact * self.k_discure_immunereact
+            dxdt1 = (
+                Disease * self.k_disprog
+                - Disease * Immunity ** self.HillCure * self.k_discure_immunity
+                - Disease * ImmuneReact * self.k_discure_immunereact
+            )
 
-            dxdt2 = Disease * self.k_immune_disease - \
-                    ImmuneReact * self.k_immune_off + \
-                    Disease * ImmuneReact * self.k_immune_feedback + \
-                    (ImmuneReact ** self.HillPatho * self.emax_patho) / (
-                            self.ec50_patho ** self.HillPatho + ImmuneReact ** self.HillPatho) - \
-                    Dose2 * ImmuneReact * self.k_dexa
+            dxdt2 = (
+                Disease * self.k_immune_disease
+                - ImmuneReact * self.k_immune_off
+                + Disease * ImmuneReact * self.k_immune_feedback
+                + (ImmuneReact ** self.HillPatho * self.emax_patho)
+                / (self.ec50_patho ** self.HillPatho + ImmuneReact ** self.HillPatho)
+                - Dose2 * ImmuneReact * self.k_dexa
+            )
 
             dxdt3 = ImmuneReact * self.k_immunity
 
             dxdt4 = self.kel * Dose - self.kel * Dose2
         else:
             dxdt1 = ImmuneReact
-            dxdt2 = -1. * Disease * self.theta_1
+            dxdt2 = -1.0 * Disease * self.theta_1
             dxdt3 = Dose2
-            dxdt4 = -1. * Immunity * self.theta_2
+            dxdt4 = -1.0 * Immunity * self.theta_2
 
         if self.expanded:
             dmldt = self.ml_net(y)
@@ -588,19 +585,9 @@ class RocheODEReal(nn.Module):
         self.t_max = t_max
         self.step_size = step_size
 
-        self.dx1_net = nn.Sequential(
-            nn.Linear(3, self.hidden_dim),
-            nn.Tanh(),
-            nn.Linear(self.hidden_dim, 1),
-            nn.Tanh()
-        )
+        self.dx1_net = nn.Sequential(nn.Linear(3, self.hidden_dim), nn.Tanh(), nn.Linear(self.hidden_dim, 1), nn.Tanh())
 
-        self.dx2_net = nn.Sequential(
-            nn.Linear(2, self.hidden_dim),
-            nn.Tanh(),
-            nn.Linear(self.hidden_dim, 1),
-            nn.Tanh()
-        )
+        self.dx2_net = nn.Sequential(nn.Linear(2, self.hidden_dim), nn.Tanh(), nn.Linear(self.hidden_dim, 1), nn.Tanh())
 
         self.expert_dim = 4
 
@@ -609,9 +596,15 @@ class RocheODEReal(nn.Module):
         else:
             self.expert_only = False
         if not self.expert_only:
-            self.lin_hh = torch.nn.Linear(self.latent_dim - self.expert_dim, self.latent_dim - self.expert_dim, bias=False)
-            self.lin_hz = torch.nn.Linear(self.latent_dim - self.expert_dim, self.latent_dim - self.expert_dim, bias=False)
-            self.lin_hr = torch.nn.Linear(self.latent_dim - self.expert_dim, self.latent_dim - self.expert_dim, bias=False)
+            self.lin_hh = torch.nn.Linear(
+                self.latent_dim - self.expert_dim, self.latent_dim - self.expert_dim, bias=False
+            )
+            self.lin_hz = torch.nn.Linear(
+                self.latent_dim - self.expert_dim, self.latent_dim - self.expert_dim, bias=False
+            )
+            self.lin_hr = torch.nn.Linear(
+                self.latent_dim - self.expert_dim, self.latent_dim - self.expert_dim, bias=False
+            )
 
         self.k_immunity = nn.Parameter(torch.tensor(1, device=self.device, dtype=dtype))
         self.kel = nn.Parameter(torch.tensor(0.2, device=self.device, dtype=dtype))
@@ -641,7 +634,7 @@ class RocheODEReal(nn.Module):
             return ret
         else:
             x = 0
-            h = y[..., self.expert_dim:]
+            h = y[..., self.expert_dim :]
             r = torch.sigmoid(x + self.lin_hr(h))
             z = torch.sigmoid(x + self.lin_hz(h))
             u = torch.tanh(x + self.lin_hh(r * h))
@@ -662,7 +655,6 @@ class RocheODEReal(nn.Module):
         inside_exp = self.kel * (self.times - t) * (t >= self.times)
         d = torch.sum(self.dosage * torch.exp(inside_exp) * (t >= self.times), dim=(0, 2))
         return d
-
 
 
 class NeuralODEReal2nd(nn.Module):
@@ -717,7 +709,7 @@ class NeuralODEReal2nd(nn.Module):
         y_full = torch.cat([y, dose], dim=-1)
 
         dml1dt = self.ml_net(y_full)
-        dml2dt = y[..., :(self.latent_dim // 2)]
+        dml2dt = y[..., : (self.latent_dim // 2)]
         dmldt = torch.cat([dml1dt, dml2dt], dim=-1)
         return dmldt
 
@@ -776,8 +768,24 @@ class NeuralODEReal(nn.Module):
         dmldt = self.ml_net(y_full)
         return dmldt
 
+
 class DecoderReal(nn.Module):
-    def __init__(self, obs_dim, latent_dim, action_dim, static_dim, hidden_dim, t_max, step_size, t0=0, method='dopri5', ode_step_size=None, ode_type='neural', device=None, dtype=DTYPE):
+    def __init__(
+        self,
+        obs_dim,
+        latent_dim,
+        action_dim,
+        static_dim,
+        hidden_dim,
+        t_max,
+        step_size,
+        t0=0,
+        method="dopri5",
+        ode_step_size=None,
+        ode_type="neural",
+        device=None,
+        dtype=DTYPE,
+    ):
         super().__init__()
 
         self.time_dim = int(t_max / step_size)
@@ -791,7 +799,7 @@ class DecoderReal(nn.Module):
         self.hidden_dim = int(hidden_dim)
 
         # todo: switch between decoders
-        self.model_name = 'DecoderReal_' + ode_type
+        self.model_name = "DecoderReal_" + ode_type
 
         if device is None:
             self.device = get_device()
@@ -801,21 +809,21 @@ class DecoderReal(nn.Module):
         self.output_function = nn.Sequential(
             nn.Linear(self.latent_dim, self.latent_dim + 1, bias=True),
             nn.ELU(),
-            nn.Linear(self.latent_dim + 1, self.obs_dim, bias=True)
+            nn.Linear(self.latent_dim + 1, self.obs_dim, bias=True),
         ).to(self.device)
 
-        if ode_type == 'neural':
+        if ode_type == "neural":
             self.ode = NeuralODEReal(latent_dim, action_dim, static_dim, hidden_dim, t_max, step_size, device)
-        elif ode_type == '2nd':
+        elif ode_type == "2nd":
             self.ode = NeuralODEReal2nd(latent_dim, action_dim, static_dim, hidden_dim, t_max, step_size, device)
         else:
             self.ode = RocheODEReal(latent_dim, action_dim, static_dim, hidden_dim, t_max, step_size, device)
         self.t = torch.arange(t0 - 1, t_max, step_size, device=self.device, dtype=dtype)
         options = {}
-        options.update({'step_t': self.t})
+        options.update({"step_t": self.t})
         # options.update({'jump_t': self.t})
-        options.update({'step_size': ode_step_size})
-        options.update({'perturb': True})
+        options.update({"step_size": ode_step_size})
+        options.update({"perturb": True})
         self.rtol = 1e-7
         self.atol = 1e-8
         self.options = options
@@ -826,13 +834,20 @@ class DecoderReal(nn.Module):
         self.ode.set_action_static(a, s)
         if len(init.shape) == 2:
             # solve ode
-            h = dto(self.ode, init, self.t, method=self.method,
-                    options=self.options, rtol=self.rtol, atol=self.atol)
+            h = dto(self.ode, init, self.t, method=self.method, options=self.options, rtol=self.rtol, atol=self.atol)
         else:
             h_list = []
             for i in range(self.t_max - 1):
                 ht0 = init[i]
-                ht = dto(self.ode, ht0, self.t[i:(i+2)], method=self.method, options=self.options, rtol=self.rtol, atol=self.atol)
+                ht = dto(
+                    self.ode,
+                    ht0,
+                    self.t[i : (i + 2)],
+                    method=self.method,
+                    options=self.options,
+                    rtol=self.rtol,
+                    atol=self.atol,
+                )
                 h_list.append(ht[-1, ...])
 
             padding = torch.zeros_like(h_list[0])
@@ -843,18 +858,15 @@ class DecoderReal(nn.Module):
         # generate output
         x_hat = self.output_function(h)[1:]
         if len(init.shape) != 2:
-            x_hat[0] = 0.
+            x_hat[0] = 0.0
         return x_hat, h
 
 
 class GRUODECell(torch.nn.Module):
-    """
-    https://github.com/edebrouwer/gru_ode_bayes/blob/master/gru_ode_bayes/models.py
-    """
+    """See https://github.com/edebrouwer/gru_ode_bayes/blob/master/gru_ode_bayes/models.py."""
+
     def __init__(self, hidden_size, bias=True):
-        """
-        For p(t) modelling input_size should be 2x the x size.
-        """
+        """For p(t) modelling input_size should be 2x the x size."""
         super().__init__()
         self.hidden_size = hidden_size
         self.lin_hz = torch.nn.Linear(hidden_size + 2, hidden_size + 2, bias=False)
@@ -870,13 +882,27 @@ class GRUODECell(torch.nn.Module):
         # print(z.shape)
         # print(n.shape)
         # print(h_all[0].shape)
-        dh = (1 - z[:, :, :self.hidden_size]) * (n - h_all[0])
+        dh = (1 - z[:, :, : self.hidden_size]) * (n - h_all[0])
         return dh, (h_all[0], 0)
 
 
 class DecoderRealBenchmark(nn.Module):
-    def __init__(self, obs_dim, latent_dim, action_dim, static_dim, hidden_dim, t_max, step_size, t0=0, method='dopri5',
-                 ode_step_size=None, ode_type='tlstm', device=None, dtype=DTYPE):
+    def __init__(
+        self,
+        obs_dim,
+        latent_dim,
+        action_dim,
+        static_dim,
+        hidden_dim,
+        t_max,
+        step_size,
+        t0=0,
+        method="dopri5",
+        ode_step_size=None,
+        ode_type="tlstm",
+        device=None,
+        dtype=DTYPE,
+    ):
         super().__init__()
 
         self.time_dim = int(t_max / step_size)
@@ -890,7 +916,7 @@ class DecoderRealBenchmark(nn.Module):
         self.hidden_dim = int(hidden_dim)
 
         # todo: switch between decoders
-        self.model_name = 'DecoderReal_' + ode_type
+        self.model_name = "DecoderReal_" + ode_type
 
         if device is None:
             self.device = get_device()
@@ -900,13 +926,13 @@ class DecoderRealBenchmark(nn.Module):
         self.output_function = nn.Sequential(
             nn.Linear(self.latent_dim, self.latent_dim + 1, bias=True),
             nn.ELU(),
-            nn.Linear(self.latent_dim + 1, self.obs_dim, bias=True)
+            nn.Linear(self.latent_dim + 1, self.obs_dim, bias=True),
         ).to(self.device)
         self.ode_type = ode_type
 
-        if ode_type == 'tlstm':
+        if ode_type == "tlstm":
             self.rnn = nn.LSTM(action_dim * 2, latent_dim).to(self.device)
-        elif ode_type == 'gruode':
+        elif ode_type == "gruode":
             self.rnn = GRUODECell(latent_dim)
             # self.rnn = nn.GRUCell(action_dim * 2, latent_dim).to(self.device)
         self.t = torch.arange(t0, t_max, step_size, device=self.device, dtype=dtype)
@@ -914,7 +940,7 @@ class DecoderRealBenchmark(nn.Module):
         self.step_size = ode_step_size
 
     def forward(self, init, a, s):
-        if self.ode_type in ['tlstm', 'gruode']:
+        if self.ode_type in ["tlstm", "gruode"]:
             hidden = init[None, :, :]
         else:
             hidden = init
@@ -923,10 +949,10 @@ class DecoderRealBenchmark(nn.Module):
         out_list = list()
         for tt in self.t:
             t = int(tt.item())
-            obs = a[t:t + 1, ...]
+            obs = a[t : t + 1, ...]
             time = torch.ones_like(obs) * t / self.t_max
             obs = torch.cat([obs, time], dim=-1)
-            if self.ode_type in ['tlstm', 'gruode']:
+            if self.ode_type in ["tlstm", "gruode"]:
                 out, (hidden, c) = self.rnn(obs, (hidden, c))
             else:
                 hidden = self.rnn(obs[0], hidden)
@@ -959,7 +985,7 @@ class NeuralODE(nn.Module):
         self.t_max = t_max
         self.step_size = step_size
 
-        dc = RochConfig()
+        dc = sim_config.RochConfig()
         self.kel = nn.Parameter(torch.tensor(dc.kel, device=self.device, dtype=dtype))
 
         self.ml_net = nn.Sequential(
@@ -1002,7 +1028,20 @@ class NeuralODE(nn.Module):
 
 # assume all outputs are tanh [-1, 1]
 class RocheExpertDecoder(nn.Module):
-    def __init__(self, obs_dim, latent_dim, action_dim, t_max, step_size, roche=True, ablate=False, method='dopri5', ode_step_size=None, device=None, dtype=DTYPE):
+    def __init__(
+        self,
+        obs_dim,
+        latent_dim,
+        action_dim,
+        t_max,
+        step_size,
+        roche=True,
+        ablate=False,
+        method="dopri5",
+        ode_step_size=None,
+        device=None,
+        dtype=DTYPE,
+    ):
         super().__init__()
 
         self.time_dim = int(t_max / step_size)
@@ -1015,15 +1054,15 @@ class RocheExpertDecoder(nn.Module):
         self.ablate = ablate
         if roche:
             if latent_dim == 4:
-                self.model_name = 'ExpertDecoder'
+                self.model_name = "ExpertDecoder"
             else:
-                self.model_name = 'HybridDecoder'
+                self.model_name = "HybridDecoder"
         else:
-            self.model_name = 'NeuralODEDecoder'
+            self.model_name = "NeuralODEDecoder"
 
         if self.ablate:
-            self.model_name = self.model_name + 'Ablate'
-            print('Running ablation study')
+            self.model_name = self.model_name + "Ablate"
+            print("Running ablation study")
 
         if device is None:
             self.device = get_device()
@@ -1033,18 +1072,18 @@ class RocheExpertDecoder(nn.Module):
         self.t = torch.arange(0, t_max + step_size, step_size, device=self.device, dtype=dtype)
 
         options = {}
-        options.update({'method': method})
-        options.update({'h': ode_step_size})
-        options.update({'t0': 0.0})
-        options.update({'t1': t_max + step_size})
-        options.update({'rtol': 1e-7})
-        options.update({'atol': 1e-8})
-        options.update({'print_neval': True})
-        options.update({'neval_max': 1000000})
-        options.update({'safety': None})
-        options.update({'t_eval': self.t})
-        options.update({'interpolation_method': 'cubic'})
-        options.update({'regenerate_graph': False})
+        options.update({"method": method})
+        options.update({"h": ode_step_size})
+        options.update({"t0": 0.0})
+        options.update({"t1": t_max + step_size})
+        options.update({"rtol": 1e-7})
+        options.update({"atol": 1e-8})
+        options.update({"print_neval": True})
+        options.update({"neval_max": 1000000})
+        options.update({"safety": None})
+        options.update({"t_eval": self.t})
+        options.update({"interpolation_method": "cubic"})
+        options.update({"regenerate_graph": False})
 
         self.options = options
 
@@ -1063,7 +1102,7 @@ class RocheExpertDecoder(nn.Module):
         # note: debug only
         # self.output_function = nn.Sequential(
         #     nn.Identity()
-            # nn.Tanh()
+        # nn.Tanh()
         # ).to(self.device)
         if roche:
             self.ode = RocheODE(latent_dim, action_dim, t_max, step_size, ablate=self.ablate, device=device)
@@ -1074,37 +1113,44 @@ class RocheExpertDecoder(nn.Module):
         self.ode.set_action(a)
         # solve ode
         # h = ode_solver.odesolve(self.ode, init, self.options)
-        h = dto(self.ode, init, self.t, rtol=self.options['rtol'], atol=self.options['atol'], method=self.options['method'])
+        h = dto(
+            self.ode, init, self.t, rtol=self.options["rtol"], atol=self.options["atol"], method=self.options["method"]
+        )
         # generate output
         x_hat = self.output_function(h)
         return x_hat, h
 
 
 class VariationalInference:
+    epsilon = torch.finfo(DTYPE).eps
+
     def __init__(self, encoder, decoder, elbo=True, prior_log_pdf=None, mc_size=100):
         self.encoder = encoder
         self.decoder = decoder
         self.prior_log_pdf = prior_log_pdf
         self.mc_size = mc_size
         self.elbo = elbo
-        self.model_name = 'VI_{}_{}.pkl'.format(encoder.model_name, decoder.model_name)
+        self.model_name = "VI_{}_{}.pkl".format(encoder.model_name, decoder.model_name)
 
     def save(self, path, itr, best_loss):
 
         path = path + self.model_name
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        torch.save({
-            'itr': itr,
-            'encoder_state_dict': self.encoder.state_dict(),
-            'decoder_state_dict': self.decoder.state_dict(),
-            'best_loss': best_loss,
-        }, path)
+        torch.save(
+            {
+                "itr": itr,
+                "encoder_state_dict": self.encoder.state_dict(),
+                "decoder_state_dict": self.decoder.state_dict(),
+                "best_loss": best_loss,
+            },
+            path,
+        )
 
     def loss(self, data):
-        x = data['measurements']
-        a = data['actions']
-        mask = data['masks']
+        x = data["measurements"]
+        a = data["actions"]
+        mask = data["masks"]
 
         self.x = x
         self.a = a
@@ -1156,7 +1202,7 @@ class VariationalInference:
             # sample from q(z)
             z = self.encoder.reparameterize(mu, log_var)
             # todo
-            z[z < 0] = 1e-9
+            z[z <= 0.0] = self.epsilon
             # log p(z)
             log_p = self.prior_log_pdf(z)
             # log q(z)
@@ -1175,10 +1221,10 @@ class VariationalInferenceReal(VariationalInference):
         self.weight = weight
 
     def loss(self, data):
-        x = data['measurements']
-        a = data['actions']
-        mask = data['masks']
-        s = data['statics']
+        x = data["measurements"]
+        a = data["actions"]
+        mask = data["masks"]
+        s = data["statics"]
         t0 = self.t0
 
         # q
@@ -1197,7 +1243,7 @@ class VariationalInferenceReal(VariationalInference):
         if self.weight:
             weight = 1 / torch.arange(1, self.decoder.t_max - t0 + 1)[:, None, None]
         else:
-            weight = 1.
+            weight = 1.0
         lik = torch.sum((x[t0:] - x_hat) ** 2 * mask[t0:] * weight) / x[t0:].shape[1]
 
         if not self.elbo:
@@ -1250,8 +1296,6 @@ class VariationalInferenceReal(VariationalInference):
     #     return loss
 
 
-
-
 class VariationalInferenceFlow:
     def __init__(self, encoder, decoder, elbo=True, prior_log_pdf=None, mc_size=100):
         self.encoder = encoder
@@ -1259,24 +1303,27 @@ class VariationalInferenceFlow:
         self.prior_log_pdf = prior_log_pdf
         self.mc_size = mc_size
         self.elbo = elbo
-        self.model_name = 'VI_FLOW_{}_{}.pkl'.format(encoder.model_name, decoder.model_name)
+        self.model_name = "VI_FLOW_{}_{}.pkl".format(encoder.model_name, decoder.model_name)
 
     def save(self, path, itr, best_loss):
 
         path = path + self.model_name
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        torch.save({
-            'itr': itr,
-            'encoder_state_dict': self.encoder.state_dict(),
-            'decoder_state_dict': self.decoder.state_dict(),
-            'best_loss': best_loss,
-        }, path)
+        torch.save(
+            {
+                "itr": itr,
+                "encoder_state_dict": self.encoder.state_dict(),
+                "decoder_state_dict": self.decoder.state_dict(),
+                "best_loss": best_loss,
+            },
+            path,
+        )
 
     def loss(self, data):
-        x = data['measurements']
-        a = data['actions']
-        mask = data['masks']
+        x = data["measurements"]
+        a = data["actions"]
+        mask = data["masks"]
 
         self.x = x
         self.a = a
@@ -1331,6 +1378,7 @@ class VariationalInferenceFlow:
         mc_tensor = torch.stack(mc_samples, dim=-1)
         mc_mean = torch.mean(mc_tensor, dim=-1)
         return mc_mean
+
 
 # DOES NOT WORK
 # class EncoderLinearLSTM(nn.Module):

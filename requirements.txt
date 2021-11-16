@@ -1,11 +1,10 @@
+argparse; python_version < '3.2'
+# jupyterlab  # Optional, if you wish to run the jupyter notebooks.
+matplotlib
+numpy==1.21.2
+pandas
+properscoring
+scipy==1.7.1
 torch==1.10.0
 torchdiffeq==0.2.2
-numpy==1.21.2
-scipy==1.7.1
-pandas
-matplotlib
-typing
-pickle
-time
-argparse
-properscoring
+typing; python_version < '3.5'
