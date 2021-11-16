@@ -110,3 +110,5 @@ results/
 !results/results_dim.txt
 !results/results_noise.txt
 !results/results_sample.txt
+
+.flake8

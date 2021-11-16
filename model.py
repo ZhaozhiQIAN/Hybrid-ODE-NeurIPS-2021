@@ -1208,7 +1208,7 @@ class VariationalInference:
             # sample from q(z)
             z = self.encoder.reparameterize(mu, log_var)
             # todo
-            z[z <= 0.] = self.epsilon
+            z[z <= 0.0] = self.epsilon
             # log p(z)
             log_p = self.prior_log_pdf(z)
             # log q(z)
