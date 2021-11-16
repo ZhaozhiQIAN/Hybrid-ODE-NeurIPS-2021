@@ -16,9 +16,7 @@ from global_config import DTYPE, get_device
 
 
 class GaussianReparam:
-    """
-    Independent Gaussian posterior with re-parameterization trick
-    """
+    """Independent Gaussian posterior with re-parameterization trick."""
 
     @staticmethod
     def reparameterize(mu, log_var):
@@ -865,14 +863,10 @@ class DecoderReal(nn.Module):
 
 
 class GRUODECell(torch.nn.Module):
-    """
-    https://github.com/edebrouwer/gru_ode_bayes/blob/master/gru_ode_bayes/models.py
-    """
+    """See https://github.com/edebrouwer/gru_ode_bayes/blob/master/gru_ode_bayes/models.py."""
 
     def __init__(self, hidden_size, bias=True):
-        """
-        For p(t) modelling input_size should be 2x the x size.
-        """
+        """For p(t) modelling input_size should be 2x the x size."""
         super().__init__()
         self.hidden_size = hidden_size
         self.lin_hz = torch.nn.Linear(hidden_size + 2, hidden_size + 2, bias=False)

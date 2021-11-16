@@ -112,3 +112,4 @@ results/
 !results/results_sample.txt
 
 .flake8
+.vscode
