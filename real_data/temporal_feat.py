@@ -1,5 +1,11 @@
 import pandas as pd
-from data_warehouse_utils.dataloader import DataLoader
+
+try:
+    from data_warehouse_utils.dataloader import DataLoader  # type: ignore  # noqa
+except (ModuleNotFoundError, ImportError) as e:
+    raise ModuleNotFoundError(
+        "`data_warehouse_utils` module not found. Have you obtained access to the DDW dataset?"
+    ) from e
 
 # get patient cohort 3 <= dt < 31
 dl = DataLoader()

@@ -23,10 +23,15 @@ $ bash experiments/run_all.sh
 ```
 You may also run the experiment steps individually, see [`experiments/run_all.sh`](./experiments/run_all.sh). To then produce the figures, run the Jupyter notebooks `Fig3.ipynb`, `Fig6.ipynb`, `Fig7.ipynb`, `Fig9.ipynb` found under [`experiments/`](./experiments/).
 
-To run real data experiments (access to Dutch Data Warehouse dataset is required, see [`real_data/README.md`](./real_data/README.md) for more information):
-```bash
-$ bash experiments/real.sh
-```
+To run real data experiments: 
+1. Access to Dutch Data Warehouse dataset is required, see [`real_data/README.md`](./real_data/README.md) for more information.
+
+2. Preprocess the data, as documented in [`real_data/README.md`](./real_data/README.md).
+
+3. Run experiments:
+    ```bash
+    $ bash experiments/real.sh
+    ```
 
 
 
